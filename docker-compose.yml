@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  fastapi-ai:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: energi-fastapi-ai
+    ports:
+      - "8000:8000"
+    networks:
+      - energi-network
+
+  springboot-gateway:
+    build:
+      context: ./springboot-backend
+      dockerfile: Dockerfile
+    container_name: energi-springboot-gateway
+    environment:
+      # Sobreescribe la URL para usar el nombre del servicio en la red de Docker
+      - FASTAPI_URL=http://fastapi-ai:8000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - fastapi-ai
+    networks:
+      - energi-network
+
+  react-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: energi-react-frontend
+    ports:
+      - "3000:80" # Mapea el puerto local 3000 al puerto 80 del Nginx en Docker
+    depends_on:
+      - springboot-gateway
+    networks:
+      - energi-network
+
+networks:
+  energi-network:
+    driver: bridge
