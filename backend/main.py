@@ -27,6 +27,18 @@ import json
 import os
 import uuid
 from datetime import datetime
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Cargar variables de entorno (busca el .env automáticamente)
+load_dotenv()
+
+# Configurar Gemini
+gemini_api_key = os.getenv("VITE_GEMINI_API_KEY")
+if gemini_api_key:
+    genai.configure(api_key=gemini_api_key)
+else:
+    print("[WARNING] VITE_GEMINI_API_KEY no encontrada en .env")
 
 # ── Inicialización de la app ────────────────────────────────────────
 app = FastAPI(
@@ -204,35 +216,48 @@ def clasificar_con_modelo(entrada: EntradaConsumo) -> tuple[str, float]:
 
 def generar_recomendaciones(entrada: EntradaConsumo, categoria: str) -> List[str]:
     """
-    Genera recomendaciones basadas en el perfil y los datos de entrada.
+    Genera recomendaciones utilizando el modelo Gemini 1.5 Flash.
+    Si la API falla, usa recomendaciones de fallback.
     """
-    recs = []
+    try:
+        if not os.getenv("VITE_GEMINI_API_KEY"):
+            raise ValueError("No API Key")
 
-    if entrada.uso_horario_pico:
-        recs.append("Redistribuir el uso de electrodomésticos de alto consumo fuera del horario pico (18:00-22:00) puede reducir su factura hasta un 20%.")
-
-    if entrada.horas_alto_consumo > 8:
-        recs.append(f"Con {entrada.horas_alto_consumo}h de alto consumo diario, distribuir actividades a lo largo del día reduciría la demanda pico significativamente.")
-
-    if entrada.cantidad_equipos > 15:
-        recs.append(f"Tiene {entrada.cantidad_equipos} equipos activos. Revise cuáles permanecen en standby (consumo vampiro) y use regletas con interruptor.")
-
-    if categoria == "Ineficiente":
-        recs.extend([
-            "Su consumo supera el 35% del umbral eficiente para su tipo de inmueble. Evalúe renovar los equipos de mayor antigüedad por modelos Energy Star.",
-            "Instale un medidor inteligente para identificar los picos de consumo en tiempo real.",
-        ])
-    elif categoria == "Moderado":
-        recs.extend([
-            "Pequeños ajustes como programar el aire acondicionado a 24°C y usar ciclos de lavado en frío pueden llevar su perfil a Eficiente.",
-        ])
-    else:
-        recs.append("¡Excelente perfil! Mantenga los hábitos actuales y considere paneles solares para compensar el consumo residual.")
-
-    # Recomendaciones generales siempre presentes
-    recs.append("Realice un seguimiento mensual comparando su consumo con el período anterior para detectar tendencias.")
-
-    return recs[:5]  # Máximo 5 recomendaciones
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        prompt = f"""
+        Actúa como un Experto en Eficiencia Energética de nivel mundial.
+        Analiza el siguiente perfil de un consumidor y proporciona exactamente 5 recomendaciones prácticas y personalizadas para reducir su factura de luz.
+        Las recomendaciones deben ser oraciones concisas y directas (sin introducción ni conclusión).
+        No uses viñetas (como asteriscos o guiones), simplemente proporciona el texto de cada recomendación en una línea nueva.
+        
+        Perfil del Consumidor:
+        - Consumo Mensual: {entrada.consumo_kwh} kWh
+        - Uso en Horario Pico: {"Sí" if entrada.uso_horario_pico else "No"}
+        - Cantidad de Equipos: {entrada.cantidad_equipos}
+        - Tipo de Inmueble: {entrada.tipo_inmueble}
+        - Horas de Alto Consumo al día: {entrada.horas_alto_consumo}
+        - Clasificación del Modelo de IA: {categoria}
+        """
+        
+        response = model.generate_content(prompt)
+        # Dividir por líneas y limpiar
+        lineas = response.text.strip().split('\n')
+        recs = [linea.strip('- *').strip() for linea in lineas if linea.strip()]
+        
+        # Limitar a 5 recomendaciones
+        return recs[:5] if len(recs) >= 5 else recs + ["Realice un seguimiento mensual comparando su consumo."] * (5 - len(recs))
+        
+    except Exception as e:
+        print(f"[ERROR GEMINI] Falló la generación de recomendaciones: {e}")
+        # Fallback estático
+        return [
+            "Redistribuya el uso de electrodomésticos fuera del horario pico para ahorrar hasta 20%.",
+            f"Tiene {entrada.cantidad_equipos} equipos activos, revise cuáles consumen energía en espera (modo vampiro).",
+            "Considere reemplazar equipos antiguos por modelos con certificación de ahorro energético.",
+            "Utilice iluminación LED en las áreas de mayor uso.",
+            "Realice un seguimiento mensual comparando su consumo con el período anterior."
+        ]
 
 
 # ── Endpoints ───────────────────────────────────────────────────────

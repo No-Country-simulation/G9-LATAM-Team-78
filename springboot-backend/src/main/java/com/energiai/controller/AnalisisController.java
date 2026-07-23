@@ -1,75 +1,76 @@
 package com.energiai.controller;
 
+import com.energiai.dto.AnalisisRequestDTO;
+import com.energiai.dto.AnalisisResponseDTO;
+import com.energiai.service.AnalisisService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Análisis Energético", description = "Endpoints para el análisis de consumo eléctrico y gestión de resultados")
 public class AnalisisController {
 
-    private final RestTemplate restTemplate;
-    
-    // URL del microservicio FastAPI (inyectada por entorno en Docker, con fallback a localhost)
-    @org.springframework.beans.factory.annotation.Value("${FASTAPI_URL:http://localhost:8000}")
-    private String FASTAPI_BASE_URL;
+    private final AnalisisService analisisService;
 
     @Autowired
-    public AnalisisController(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+    public AnalisisController(AnalisisService analisisService) {
+        this.analisisService = analisisService;
     }
 
+    @Operation(
+        summary = "Crear nuevo análisis energético",
+        description = "Recibe los datos del usuario, los valida y los procesa usando el motor de Inteligencia Artificial para predecir la eficiencia energética.",
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Análisis procesado exitosamente",
+                content = @Content(schema = @Schema(implementation = AnalisisResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos (ej. consumo negativo o campos vacíos)")
+        }
+    )
     @PostMapping("/analisis-energetico")
-    public ResponseEntity<Map> procesarAnalisis(@RequestBody Map<String, Object> payload) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(payload, headers);
-        String url = FASTAPI_BASE_URL + "/analisis-energetico";
-        ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
-        return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+    public ResponseEntity<AnalisisResponseDTO> procesarAnalisis(
+            @Valid @RequestBody AnalisisRequestDTO peticionDTO) {
+        
+        AnalisisResponseDTO resultado = analisisService.procesarAnalisis(peticionDTO);
+        return ResponseEntity.ok(resultado);
     }
 
+    @Operation(summary = "Listar resultados de análisis", description = "Obtiene todo el historial de análisis realizados.")
     @GetMapping("/resultados")
     public ResponseEntity<Map> listarResultados() {
-        String url = FASTAPI_BASE_URL + "/resultados";
-        ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
-        return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+        return ResponseEntity.ok(analisisService.listarResultados());
     }
 
+    @Operation(summary = "Consultar resultado específico", description = "Obtiene un resultado por su ID.")
     @GetMapping("/resultados/{id}")
     public ResponseEntity<Map> consultarResultado(@PathVariable String id) {
-        String url = FASTAPI_BASE_URL + "/resultados/" + id;
-        ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
-        return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+        return ResponseEntity.ok(analisisService.consultarResultado(id));
     }
 
+    @Operation(summary = "Actualizar resultado", description = "Actualiza los datos de un análisis existente.")
     @PutMapping("/resultados/{id}")
     public ResponseEntity<Map> actualizarResultado(@PathVariable String id, @RequestBody Map<String, Object> payload) {
-        String url = FASTAPI_BASE_URL + "/resultados/" + id;
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(payload, headers);
-        ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.PUT, requestEntity, Map.class);
-        return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+        return ResponseEntity.ok(analisisService.actualizarResultado(id, payload));
     }
 
+    @Operation(summary = "Eliminar resultado", description = "Borra un análisis del historial por su ID.")
     @DeleteMapping("/resultados/{id}")
     public ResponseEntity<Map> eliminarResultado(@PathVariable String id) {
-        String url = FASTAPI_BASE_URL + "/resultados/" + id;
-        ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.DELETE, null, Map.class);
-        return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+        return ResponseEntity.ok(analisisService.eliminarResultado(id));
     }
 
+    @Operation(summary = "Obtener tasas de conversión de moneda", description = "Se conecta al microservicio Python para traer las tasas actuales de LATAM.")
     @GetMapping("/convertir-moneda")
     public ResponseEntity<Map> convertirMoneda() {
-        String url = FASTAPI_BASE_URL + "/convertir-moneda";
-        ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
-        return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+        return ResponseEntity.ok(analisisService.convertirMoneda());
     }
 }

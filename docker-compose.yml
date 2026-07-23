@@ -6,6 +6,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: energi-fastapi-ai
+    environment:
+      - VITE_GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
     ports:
       - "8000:8000"
     networks:
