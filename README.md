@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+# G9-LATAM-Team-78
+>>>>>>> 3f375c72facd36b63272164ba1566f5c8e770cc5
 # ⚡ EnergiAI - Arquitectura y Agentes de IA (React + Vite)
 
 **EnergiAI** es una aplicación web interactiva diseñada para el Hackatón de ONE. Ayuda a los usuarios a monitorizar su consumo eléctrico doméstico en tiempo real, identificar puntos de derroche ("consumo vampiro", picos del aire acondicionado) y recibir recomendaciones personalizadas a través de un chatbot inteligente impulsado por la API de Google Gemini.
