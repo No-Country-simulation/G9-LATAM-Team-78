@@ -1,5 +1,5 @@
 
-=======
+
 # G9-LATAM-Team-78
 
 # ⚡ EnergiAI - Arquitectura y Agentes de IA (React + Vite)
