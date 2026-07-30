@@ -68,4 +68,20 @@ public class AnalisisService {
     public Map convertirMoneda() {
         return restTemplate.getForObject(FASTAPI_BASE_URL + "/convertir-moneda", Map.class);
     }
+    
+    public com.energiai.dto.EvaluacionPerfilResponseDTO evaluarPerfil(com.energiai.dto.EvaluacionPerfilRequestDTO requestDTO) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        HttpEntity<com.energiai.dto.EvaluacionPerfilRequestDTO> requestEntity = new HttpEntity<>(requestDTO, headers);
+        String url = FASTAPI_BASE_URL + "/api/v1/evaluar-perfil";
+        
+        ResponseEntity<com.energiai.dto.EvaluacionPerfilResponseDTO> response = restTemplate.postForEntity(url, requestEntity, com.energiai.dto.EvaluacionPerfilResponseDTO.class);
+        
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return response.getBody();
+        } else {
+            throw new RuntimeException("Error al comunicarse con el motor de IA de FastAPI. Código: " + response.getStatusCode());
+        }
+    }
 }

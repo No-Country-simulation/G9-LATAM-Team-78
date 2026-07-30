@@ -539,7 +539,93 @@ def ejemplos_uso():
                         "Instalar medidor inteligente",
                         "Reducir uso en horario pico"
                     ]
-                }
             }
         ]
     }
+
+
+class EvaluacionPerfilRequest(BaseModel):
+    nombre_consumidor: str = Field(..., description="Nombre o identificador del usuario final")
+    tipo_inmueble: str = Field(..., description="casa, apto, oficina, comercio")
+    moneda_region: str = Field(..., description="USD, MXN, COP, ARS, CLP, PEN, BRL")
+    cantidad_equipos: int
+    uso_horario_pico: str = Field(..., description="low, medium, high")
+    horas_alto_consumo: str = Field(..., description="tarde, noche, dia")
+    consumo_kwh: float
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nombre_consumidor": "Juan Pérez",
+                "tipo_inmueble": "casa",
+                "moneda_region": "COP",
+                "cantidad_equipos": 12,
+                "uso_horario_pico": "medium",
+                "horas_alto_consumo": "noche",
+                "consumo_kwh": 650.0
+            }
+        }
+
+@app.post("/api/v1/evaluar-perfil", tags=["Evaluación de Perfil"])
+def evaluar_perfil(req: EvaluacionPerfilRequest):
+    # Lógica base similar a getDynamicSummary en mockData.ts
+    
+    # Baseline base
+    if req.tipo_inmueble == "apto":
+        baseline_kwh = 10.0
+    elif req.tipo_inmueble in ["oficina", "comercio"]:
+        baseline_kwh = 19.5
+    else:
+        # casa
+        baseline_kwh = 16.9
+
+    baseline_kwh += max(0.05, req.cantidad_equipos * 0.01)
+
+    region = REGIONES_CONFIG.get(req.moneda_region, REGIONES_CONFIG["USD"])
+    factor_clima = region["factor_clima"]
+    tarifa = region["tarifa_usd"]
+    
+    baseline_kwh *= factor_clima
+
+    # Estimar consumo diario (simplificación para el endpoint)
+    # Suponemos que el consumo mensual / 30 es el actual diario
+    consumo_diario = req.consumo_kwh / 30.0
+
+    ratio = consumo_diario / max(baseline_kwh, 1.0)
+    
+    # Penalizaciones
+    if req.uso_horario_pico == "high":
+        ratio *= 1.2
+    elif req.uso_horario_pico == "medium":
+        ratio *= 1.05
+
+    if ratio > 1.3:
+        perfil = "Ineficiente"
+        alerta = "Se detectó derroche crítico. Reduzca el uso en horas pico."
+    elif ratio > 1.05:
+        perfil = "Moderado"
+        alerta = f"Se detectaron picos regulares en la franja {req.horas_alto_consumo}."
+    else:
+        perfil = "Eficiente"
+        alerta = "¡Excelente manejo de la energía!"
+
+    proyeccion_mensual = consumo_diario * 30
+    costo_estimado = round(proyeccion_mensual * tarifa, 2)
+    ahorro = max(0.0, round((consumo_diario - baseline_kwh) * 30 * tarifa, 2))
+    pct_ahorro = round((ahorro / costo_estimado) * 100, 1) if costo_estimado > 0 else 0.0
+
+    return {
+        "estado": "success",
+        "codigo_http": 200,
+        "data": {
+            "perfil_energetico": perfil,
+            "detalles_evaluacion": {
+                "consumo_diario_estimado": round(consumo_diario, 1),
+                "proyeccion_mensual_kwh": round(proyeccion_mensual, 1),
+                "costo_estimado_mensual": costo_estimado,
+                "porcentaje_ahorro": pct_ahorro,
+                "alerta_habitos": alerta
+            }
+        }
+    }
+

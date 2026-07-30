@@ -44,6 +44,23 @@ public class AnalisisController {
         return ResponseEntity.ok(resultado);
     }
 
+    @Operation(
+        summary = "Evaluación de Perfil Energético (SAPI)", 
+        description = "Punto de integración principal para SAPI. Recibe datos de consumo simulado y retorna el perfil de eficiencia, métricas diarias, proyecciones mensuales y alertas personalizadas.",
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Evaluación generada exitosamente",
+                content = @Content(schema = @Schema(implementation = com.energiai.dto.EvaluacionPerfilResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Datos de entrada incompletos o mal formateados")
+        }
+    )
+    @PostMapping("/v1/evaluar-perfil")
+    public ResponseEntity<com.energiai.dto.EvaluacionPerfilResponseDTO> evaluarPerfil(
+            @Valid @RequestBody com.energiai.dto.EvaluacionPerfilRequestDTO peticionDTO) {
+        
+        com.energiai.dto.EvaluacionPerfilResponseDTO resultado = analisisService.evaluarPerfil(peticionDTO);
+        return ResponseEntity.ok(resultado);
+    }
+
     @Operation(summary = "Listar resultados de análisis", description = "Obtiene todo el historial de análisis realizados.")
     @GetMapping("/resultados")
     public ResponseEntity<Map> listarResultados() {
