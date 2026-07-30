@@ -1,4 +1,8 @@
-# ⚡ EnergiAI - Arquitectura de Microservicios Cloud
+
+
+# G9-LATAM-Team-78
+
+# ⚡ EnergiAI - Arquitectura y Agentes de IA (React + Vite)
 
 **EnergiAI** es una plataforma interactiva que ayuda a los usuarios a monitorizar su consumo eléctrico, identificar derroches ("consumo vampiro") y recibir recomendaciones personalizadas a través de un modelo de IA. 
 

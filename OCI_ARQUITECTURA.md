@@ -37,7 +37,7 @@
 - **Almacenamiento del modelo serializado** (`energiai_model.joblib`) para que la API lo cargue en arranque
 - **Persistencia de resultados** en formato JSON por análisis (historial)
 - **Dataset CSV** para análisis por lotes
-- **Sin costo de base de datos** — ideal para el MVP del hackathón
+- **Sin costo de base de datos** — 
 - **Alta disponibilidad** y durabilidad (99.99999%)
 
 ### Integración en el código
