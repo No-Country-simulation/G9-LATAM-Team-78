@@ -23,6 +23,14 @@ energiai/
 │   ├── App.css                 # Archivo vacío (para evitar conflictos de estilos)
 │   ├── App.tsx                 # Contenedor principal del Dashboard
 │   └── main.tsx                # Punto de entrada de React y renderizado
+├── backend/                    # Motor principal de IA y API en Python (FastAPI)
+│   ├── main.py                 # Lógica de ML y endpoints SAPI
+│   └── modelo/                 # Modelos serializados (Random Forest)
+├── springboot-backend/         # API Gateway corporativo en Java (Spring Boot)
+│   └── src/main/java/...       # Controladores, Servicios y DTOs (proxy hacia Python)
+├── docs/                       # Documentación adicional
+│   └── api_contract.md         # Copia del contrato de API
+├── SAPI_Endpoint.md            # Definición formal del contrato API (SAPI)
 ├── .env                        # Variables de entorno (Llave secreta de Gemini)
 ├── index.html                  # Plantilla HTML base y configuración SEO
 ├── package.json                # Gestión de dependencias y scripts del proyecto
