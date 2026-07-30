@@ -27,6 +27,18 @@ import json
 import os
 import uuid
 from datetime import datetime
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Cargar variables de entorno (busca el .env automáticamente)
+load_dotenv()
+
+# Configurar Gemini
+gemini_api_key = os.getenv("VITE_GEMINI_API_KEY")
+if gemini_api_key:
+    genai.configure(api_key=gemini_api_key)
+else:
+    print("[WARNING] VITE_GEMINI_API_KEY no encontrada en .env")
 
 # ── Inicialización de la app ────────────────────────────────────────
 app = FastAPI(
@@ -204,35 +216,48 @@ def clasificar_con_modelo(entrada: EntradaConsumo) -> tuple[str, float]:
 
 def generar_recomendaciones(entrada: EntradaConsumo, categoria: str) -> List[str]:
     """
-    Genera recomendaciones basadas en el perfil y los datos de entrada.
+    Genera recomendaciones utilizando el modelo Gemini 1.5 Flash.
+    Si la API falla, usa recomendaciones de fallback.
     """
-    recs = []
+    try:
+        if not os.getenv("VITE_GEMINI_API_KEY"):
+            raise ValueError("No API Key")
 
-    if entrada.uso_horario_pico:
-        recs.append("Redistribuir el uso de electrodomésticos de alto consumo fuera del horario pico (18:00-22:00) puede reducir su factura hasta un 20%.")
-
-    if entrada.horas_alto_consumo > 8:
-        recs.append(f"Con {entrada.horas_alto_consumo}h de alto consumo diario, distribuir actividades a lo largo del día reduciría la demanda pico significativamente.")
-
-    if entrada.cantidad_equipos > 15:
-        recs.append(f"Tiene {entrada.cantidad_equipos} equipos activos. Revise cuáles permanecen en standby (consumo vampiro) y use regletas con interruptor.")
-
-    if categoria == "Ineficiente":
-        recs.extend([
-            "Su consumo supera el 35% del umbral eficiente para su tipo de inmueble. Evalúe renovar los equipos de mayor antigüedad por modelos Energy Star.",
-            "Instale un medidor inteligente para identificar los picos de consumo en tiempo real.",
-        ])
-    elif categoria == "Moderado":
-        recs.extend([
-            "Pequeños ajustes como programar el aire acondicionado a 24°C y usar ciclos de lavado en frío pueden llevar su perfil a Eficiente.",
-        ])
-    else:
-        recs.append("¡Excelente perfil! Mantenga los hábitos actuales y considere paneles solares para compensar el consumo residual.")
-
-    # Recomendaciones generales siempre presentes
-    recs.append("Realice un seguimiento mensual comparando su consumo con el período anterior para detectar tendencias.")
-
-    return recs[:5]  # Máximo 5 recomendaciones
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        prompt = f"""
+        Actúa como un Experto en Eficiencia Energética de nivel mundial.
+        Analiza el siguiente perfil de un consumidor y proporciona exactamente 5 recomendaciones prácticas y personalizadas para reducir su factura de luz.
+        Las recomendaciones deben ser oraciones concisas y directas (sin introducción ni conclusión).
+        No uses viñetas (como asteriscos o guiones), simplemente proporciona el texto de cada recomendación en una línea nueva.
+        
+        Perfil del Consumidor:
+        - Consumo Mensual: {entrada.consumo_kwh} kWh
+        - Uso en Horario Pico: {"Sí" if entrada.uso_horario_pico else "No"}
+        - Cantidad de Equipos: {entrada.cantidad_equipos}
+        - Tipo de Inmueble: {entrada.tipo_inmueble}
+        - Horas de Alto Consumo al día: {entrada.horas_alto_consumo}
+        - Clasificación del Modelo de IA: {categoria}
+        """
+        
+        response = model.generate_content(prompt)
+        # Dividir por líneas y limpiar
+        lineas = response.text.strip().split('\n')
+        recs = [linea.strip('- *').strip() for linea in lineas if linea.strip()]
+        
+        # Limitar a 5 recomendaciones
+        return recs[:5] if len(recs) >= 5 else recs + ["Realice un seguimiento mensual comparando su consumo."] * (5 - len(recs))
+        
+    except Exception as e:
+        print(f"[ERROR GEMINI] Falló la generación de recomendaciones: {e}")
+        # Fallback estático
+        return [
+            "Redistribuya el uso de electrodomésticos fuera del horario pico para ahorrar hasta 20%.",
+            f"Tiene {entrada.cantidad_equipos} equipos activos, revise cuáles consumen energía en espera (modo vampiro).",
+            "Considere reemplazar equipos antiguos por modelos con certificación de ahorro energético.",
+            "Utilice iluminación LED en las áreas de mayor uso.",
+            "Realice un seguimiento mensual comparando su consumo con el período anterior."
+        ]
 
 
 # ── Endpoints ───────────────────────────────────────────────────────
@@ -514,7 +539,93 @@ def ejemplos_uso():
                         "Instalar medidor inteligente",
                         "Reducir uso en horario pico"
                     ]
-                }
             }
         ]
     }
+
+
+class EvaluacionPerfilRequest(BaseModel):
+    nombre_consumidor: str = Field(..., description="Nombre o identificador del usuario final")
+    tipo_inmueble: str = Field(..., description="casa, apto, oficina, comercio")
+    moneda_region: str = Field(..., description="USD, MXN, COP, ARS, CLP, PEN, BRL")
+    cantidad_equipos: int
+    uso_horario_pico: str = Field(..., description="low, medium, high")
+    horas_alto_consumo: str = Field(..., description="tarde, noche, dia")
+    consumo_kwh: float
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nombre_consumidor": "Juan Pérez",
+                "tipo_inmueble": "casa",
+                "moneda_region": "COP",
+                "cantidad_equipos": 12,
+                "uso_horario_pico": "medium",
+                "horas_alto_consumo": "noche",
+                "consumo_kwh": 650.0
+            }
+        }
+
+@app.post("/api/v1/evaluar-perfil", tags=["Evaluación de Perfil"])
+def evaluar_perfil(req: EvaluacionPerfilRequest):
+    # Lógica base similar a getDynamicSummary en mockData.ts
+    
+    # Baseline base
+    if req.tipo_inmueble == "apto":
+        baseline_kwh = 10.0
+    elif req.tipo_inmueble in ["oficina", "comercio"]:
+        baseline_kwh = 19.5
+    else:
+        # casa
+        baseline_kwh = 16.9
+
+    baseline_kwh += max(0.05, req.cantidad_equipos * 0.01)
+
+    region = REGIONES_CONFIG.get(req.moneda_region, REGIONES_CONFIG["USD"])
+    factor_clima = region["factor_clima"]
+    tarifa = region["tarifa_usd"]
+    
+    baseline_kwh *= factor_clima
+
+    # Estimar consumo diario (simplificación para el endpoint)
+    # Suponemos que el consumo mensual / 30 es el actual diario
+    consumo_diario = req.consumo_kwh / 30.0
+
+    ratio = consumo_diario / max(baseline_kwh, 1.0)
+    
+    # Penalizaciones
+    if req.uso_horario_pico == "high":
+        ratio *= 1.2
+    elif req.uso_horario_pico == "medium":
+        ratio *= 1.05
+
+    if ratio > 1.3:
+        perfil = "Ineficiente"
+        alerta = "Se detectó derroche crítico. Reduzca el uso en horas pico."
+    elif ratio > 1.05:
+        perfil = "Moderado"
+        alerta = f"Se detectaron picos regulares en la franja {req.horas_alto_consumo}."
+    else:
+        perfil = "Eficiente"
+        alerta = "¡Excelente manejo de la energía!"
+
+    proyeccion_mensual = consumo_diario * 30
+    costo_estimado = round(proyeccion_mensual * tarifa, 2)
+    ahorro = max(0.0, round((consumo_diario - baseline_kwh) * 30 * tarifa, 2))
+    pct_ahorro = round((ahorro / costo_estimado) * 100, 1) if costo_estimado > 0 else 0.0
+
+    return {
+        "estado": "success",
+        "codigo_http": 200,
+        "data": {
+            "perfil_energetico": perfil,
+            "detalles_evaluacion": {
+                "consumo_diario_estimado": round(consumo_diario, 1),
+                "proyeccion_mensual_kwh": round(proyeccion_mensual, 1),
+                "costo_estimado_mensual": costo_estimado,
+                "porcentaje_ahorro": pct_ahorro,
+                "alerta_habitos": alerta
+            }
+        }
+    }
+

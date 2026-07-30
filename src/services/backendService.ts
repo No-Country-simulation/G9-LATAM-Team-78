@@ -10,7 +10,7 @@
 import { getDynamicSummary } from '../mockData';
 import type { ApplianceBreakdown } from '../mockData';
 
-const BACKEND_URL = 'http://localhost:8000';
+const BACKEND_URL = 'http://localhost:8080/api';
 
 export interface AnalisisInput {
   consumidor: string;
