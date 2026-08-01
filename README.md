@@ -30,20 +30,7 @@ flowchart LR
    - Algoritmo determinista de clasificación y recomendaciones de alto impacto.
 
 ---
-
-## 🎯 Entregables del Sprint 1 y Sprint 2 (Backend)
-
-### 🔹 Sprint 1
-- Estrategia de validación (Bean Validation) y manejo de errores.
-- Creación del esqueleto Spring Boot e integración con el microservicio de IA en FastAPI.
-- Definición de los contratos REST principales (`POST /analisis-energetico` y `POST /api/v1/evaluar-perfil`).
-
-### 🔹 Sprint 2
-- **Tratamiento del campo `moneda_region`**: Incorporado en `AnalisisRequestDTO` y validado con patrones para monedas LATAM (`USD`, `MXN`, `COP`, `ARS`, `CLP`, `PEN`, `BRL`).
-- **Integración OCI Object Storage**: Persistencia en segundo plano de resultados JSON en el bucket `energiai-bucket` usando el SDK de OCI (`oci.object_storage`).
-- **Manejo Global de Excepciones**: Respuestas HTTP 400 Bad Request estructuradas cuando `consumo_kwh` sea negativo o la validación falle.
-- **Bypass SSL y Fallback Moneda**: Resolución de error CA SSL e incorporación de tasas de respaldo para convertir divisas LATAM.
-
+ 
 ---
 
 ## 📡 Catálogo de Endpoints REST
