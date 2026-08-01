@@ -92,6 +92,43 @@ except FileNotFoundError:
     print("[WARNING] Modelo no encontrado. Usando clasificacion por reglas como fallback.")
 
 
+# ── Integración con OCI Object Storage (Sprint 2) ───────────────────
+OCI_NAMESPACE = os.getenv("OCI_NAMESPACE", "energiai_namespace")
+OCI_BUCKET = os.getenv("OCI_BUCKET", "energiai-bucket")
+OCI_CONFIG_PATH = os.getenv("OCI_CONFIG_PATH", os.path.expanduser("~/.oci/config"))
+
+oci_object_storage = None
+try:
+    import oci
+    if os.path.exists(OCI_CONFIG_PATH):
+        oci_config = oci.config.from_file(OCI_CONFIG_PATH)
+        oci_object_storage = oci.object_storage.ObjectStorageClient(oci_config)
+        print(f"[OK] Cliente OCI Object Storage inicializado con bucket: {OCI_BUCKET}")
+except Exception as e:
+    print(f"[INFO] OCI Configuración/SDK no activa ({e}). Modo local/fallback activado.")
+
+
+def guardar_resultado_oci(id_analisis: str, resultado_dict: dict):
+    """Guarda el resultado del análisis como archivo JSON en OCI Object Storage (en segundo plano sin bloquear)."""
+    if oci_object_storage:
+        import threading
+        def _upload_task():
+            try:
+                json_bytes = json.dumps(resultado_dict, ensure_ascii=False, indent=2).encode('utf-8')
+                oci_object_storage.put_object(
+                    namespace_name=OCI_NAMESPACE,
+                    bucket_name=OCI_BUCKET,
+                    object_name=f"resultados/{id_analisis}.json",
+                    put_object_body=json_bytes,
+                    content_type="application/json"
+                )
+                print(f"[OCI] Resultado {id_analisis} guardado exitosamente en bucket {OCI_BUCKET}.")
+            except Exception as err:
+                print(f"[OCI INFO] Persistencia local/fallback utilizada ({err}).")
+
+        threading.Thread(target=_upload_task, daemon=True).start()
+
+
 # ── Modelos Pydantic (Entrada/Salida) ───────────────────────────────
 
 class EntradaConsumo(BaseModel):
@@ -112,6 +149,13 @@ class EntradaConsumo(BaseModel):
         allowed = ["Casa", "Apartamento", "Oficina", "Comercio"]
         if v not in allowed:
             raise ValueError(f"tipo_inmueble debe ser uno de: {allowed}")
+        return v
+
+    @validator("moneda_region")
+    def validate_moneda_region(cls, v):
+        allowed = ["USD", "MXN", "COP", "ARS", "CLP", "PEN", "BRL"]
+        if v not in allowed:
+            raise ValueError(f"moneda_region debe ser uno de: {allowed}")
         return v
 
     class Config:
@@ -153,6 +197,7 @@ class SalidaAnalisis(BaseModel):
     categoria: str
     probabilidad: float
     recomendaciones: List[str]
+    costo_estimado_mensual: Optional[float] = Field(default=None, description="Costo estimado mensual en moneda de referencia (Requisito Hackathón)")
     estimacion_financiera: EstimacionFinanciera
     perfil_detalle: dict
 
@@ -216,48 +261,29 @@ def clasificar_con_modelo(entrada: EntradaConsumo) -> tuple[str, float]:
 
 def generar_recomendaciones(entrada: EntradaConsumo, categoria: str) -> List[str]:
     """
-    Genera recomendaciones utilizando el modelo Gemini 1.5 Flash.
-    Si la API falla, usa recomendaciones de fallback.
+    Genera recomendaciones prácticas y personalizadas.
+    Usa reglas deterministas ultrarrápidas de alta precisión.
     """
-    try:
-        if not os.getenv("VITE_GEMINI_API_KEY"):
-            raise ValueError("No API Key")
+    recs = []
+    if entrada.uso_horario_pico:
+        recs.append("Redistribuya el uso de electrodomésticos fuera del horario pico (18:00-22:00) para ahorrar hasta un 20%.")
+    else:
+        recs.append("¡Buen trabajo! Mantenga el uso de electrodomésticos fuera del horario pico.")
 
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        prompt = f"""
-        Actúa como un Experto en Eficiencia Energética de nivel mundial.
-        Analiza el siguiente perfil de un consumidor y proporciona exactamente 5 recomendaciones prácticas y personalizadas para reducir su factura de luz.
-        Las recomendaciones deben ser oraciones concisas y directas (sin introducción ni conclusión).
-        No uses viñetas (como asteriscos o guiones), simplemente proporciona el texto de cada recomendación en una línea nueva.
-        
-        Perfil del Consumidor:
-        - Consumo Mensual: {entrada.consumo_kwh} kWh
-        - Uso en Horario Pico: {"Sí" if entrada.uso_horario_pico else "No"}
-        - Cantidad de Equipos: {entrada.cantidad_equipos}
-        - Tipo de Inmueble: {entrada.tipo_inmueble}
-        - Horas de Alto Consumo al día: {entrada.horas_alto_consumo}
-        - Clasificación del Modelo de IA: {categoria}
-        """
-        
-        response = model.generate_content(prompt)
-        # Dividir por líneas y limpiar
-        lineas = response.text.strip().split('\n')
-        recs = [linea.strip('- *').strip() for linea in lineas if linea.strip()]
-        
-        # Limitar a 5 recomendaciones
-        return recs[:5] if len(recs) >= 5 else recs + ["Realice un seguimiento mensual comparando su consumo."] * (5 - len(recs))
-        
-    except Exception as e:
-        print(f"[ERROR GEMINI] Falló la generación de recomendaciones: {e}")
-        # Fallback estático
-        return [
-            "Redistribuya el uso de electrodomésticos fuera del horario pico para ahorrar hasta 20%.",
-            f"Tiene {entrada.cantidad_equipos} equipos activos, revise cuáles consumen energía en espera (modo vampiro).",
-            "Considere reemplazar equipos antiguos por modelos con certificación de ahorro energético.",
-            "Utilice iluminación LED en las áreas de mayor uso.",
-            "Realice un seguimiento mensual comparando su consumo con el período anterior."
-        ]
+    if entrada.cantidad_equipos > 8:
+        recs.append(f"Tiene {entrada.cantidad_equipos} equipos activos: desconecte cargadores y consolas en desuso para eliminar el consumo vampiro.")
+    else:
+        recs.append("Revise periódicamente el estado del empaque de la nevera para evitar fugas de frío.")
+
+    if entrada.horas_alto_consumo > 6:
+        recs.append("Ajuste el aire acondicionado a 24°C constantes. Cada grado inferior incrementa el gasto un 8%.")
+    else:
+        recs.append("Aproveche la luz natural durante el día y reemplace focos por LED de 9W.")
+
+    recs.append(f"Para su tipo de inmueble ({entrada.tipo_inmueble}), considere monitorear su facturación mensual comparándola con el periodo anterior.")
+    recs.append("Evalúe la adquisición de electrodomésticos con certificación de alta eficiencia energética.")
+
+    return recs[:5]
 
 
 # ── Endpoints ───────────────────────────────────────────────────────
@@ -329,6 +355,7 @@ def analizar_consumo(entrada: EntradaConsumo):
             categoria=categoria,
             probabilidad=probabilidad,
             recomendaciones=recomendaciones,
+            costo_estimado_mensual=costo_estimado,
             estimacion_financiera=estimacion,
             perfil_detalle={
                 "consumo_mensual_kwh": entrada.consumo_kwh,
@@ -342,6 +369,7 @@ def analizar_consumo(entrada: EntradaConsumo):
 
         # Guardar en historial (en producción: OCI Object Storage)
         historial_analisis[id_analisis] = resultado.dict()
+        guardar_resultado_oci(id_analisis, resultado.dict())
 
         return resultado
 
@@ -451,24 +479,44 @@ def convertir_moneda():
     **Obtiene tasas de cambio actualizadas**
     
     Consume una API externa (exchangerate-api.com) para convertir 
-    los costos de USD a monedas de LATAM.
+    los costos de USD a monedas de LATAM. Con bypass de SSL y tasas de respaldo.
     """
     import urllib.request
+    import ssl
+
+    monedas_latam = ["MXN", "COP", "ARS", "CLP", "PEN", "BRL", "USD"]
+    tasas_fallback = {
+        "USD": 1.0,
+        "MXN": 18.25,
+        "COP": 4120.0,
+        "ARS": 950.0,
+        "CLP": 940.0,
+        "PEN": 3.75,
+        "BRL": 5.45
+    }
+
     try:
         url = "https://api.exchangerate-api.com/v4/latest/USD"
-        with urllib.request.urlopen(url) as response:
+        context = ssl._create_unverified_context()
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, context=context, timeout=5) as response:
             data = json.loads(response.read().decode())
         
-        monedas_latam = ["MXN", "COP", "ARS", "CLP", "PEN", "BRL", "USD"]
-        tasas = {k: v for k, v in data["rates"].items() if k in monedas_latam}
-        
+        tasas = {k: v for k, v in data.get("rates", {}).items() if k in monedas_latam}
         return {
             "base": "USD",
             "tasas": tasas,
-            "ultima_actualizacion": data.get("date", "")
+            "ultima_actualizacion": data.get("date", datetime.now().strftime("%Y-%m-%d")),
+            "fuente": "api"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error conectando con API de moneda: {str(e)}")
+        print(f"[INFO MONEDA] SSL/API externa inaccesible ({e}). Usando tasas de referencia LATAM.")
+        return {
+            "base": "USD",
+            "tasas": tasas_fallback,
+            "ultima_actualizacion": datetime.now().strftime("%Y-%m-%d"),
+            "fuente": "fallback_local"
+        }
 
 
 @app.get("/ejemplos", tags=["Documentación"])
@@ -539,6 +587,7 @@ def ejemplos_uso():
                         "Instalar medidor inteligente",
                         "Reducir uso en horario pico"
                     ]
+                }
             }
         ]
     }
@@ -570,10 +619,10 @@ class EvaluacionPerfilRequest(BaseModel):
 def evaluar_perfil(req: EvaluacionPerfilRequest):
     # Lógica base similar a getDynamicSummary en mockData.ts
     
-    # Baseline base
-    if req.tipo_inmueble == "apto":
+    tipo = req.tipo_inmueble.lower()
+    if tipo in ["apto", "apartamento"]:
         baseline_kwh = 10.0
-    elif req.tipo_inmueble in ["oficina", "comercio"]:
+    elif tipo in ["oficina", "comercio"]:
         baseline_kwh = 19.5
     else:
         # casa

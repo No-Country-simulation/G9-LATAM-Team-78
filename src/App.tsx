@@ -271,6 +271,8 @@ export default function App() {
               onChangePeakConsumptionLevel={setPeakConsumptionLevel}
               highConsumptionTime={highConsumptionTime}
               onChangeHighConsumptionTime={setHighConsumptionTime}
+              moneda={moneda}
+              tasaActual={tasas[moneda] || 1.0}
             />
           </div>
 

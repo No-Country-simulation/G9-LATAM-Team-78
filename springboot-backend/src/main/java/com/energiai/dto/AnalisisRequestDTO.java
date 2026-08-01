@@ -40,7 +40,9 @@ public class AnalisisRequestDTO {
     @Schema(description = "Horas de alto consumo por día", example = "5")
     private Integer horas_alto_consumo;
     
-    @Schema(description = "Código de moneda/región", example = "USD", defaultValue = "USD")
+    @NotBlank(message = "El código de moneda/región es obligatorio")
+    @Pattern(regexp = "^(USD|MXN|COP|ARS|CLP|PEN|BRL)$", message = "La moneda/región debe ser USD, MXN, COP, ARS, CLP, PEN o BRL")
+    @Schema(description = "Código de moneda/región (USD, MXN, COP, ARS, CLP, PEN, BRL)", example = "USD", defaultValue = "USD")
     private String moneda_region;
 
     // Getters y Setters

@@ -297,21 +297,21 @@ export default function EnergyForm({
             {/* Tariff rate config */}
             <div className="p-3.5 bg-slate-950/40 rounded-xl border border-white/5">
               <div className="flex justify-between items-center mb-1.5">
-                <span className="text-xs font-bold text-slate-200">Tarifa Eléctrica ({moneda} / kWh)</span>
-                <span className="text-xs font-extrabold text-teal-400">${(tariff * tasaActual).toFixed(2)} {moneda}</span>
+                <span className="text-xs font-bold text-slate-200">Tarifa Eléctrica ({moneda || 'USD'} / kWh)</span>
+                <span className="text-xs font-extrabold text-teal-400">${((tariff ?? 0.75) * (tasaActual || 1.0)).toFixed(2)} {moneda || 'USD'}</span>
               </div>
               <input
                 type="range"
-                min={0.01 * tasaActual}
-                max={1.50 * tasaActual}
-                step={0.01 * tasaActual}
-                value={tariff * tasaActual}
-                onChange={(e) => onUpdateTariff(parseFloat(e.target.value) / tasaActual)}
+                min={0.01 * (tasaActual || 1.0)}
+                max={1.50 * (tasaActual || 1.0)}
+                step={0.01 * (tasaActual || 1.0)}
+                value={(tariff ?? 0.75) * (tasaActual || 1.0)}
+                onChange={(e) => onUpdateTariff(parseFloat(e.target.value) / (tasaActual || 1.0))}
                 className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-400"
               />
               <div className="flex justify-between text-[8px] text-slate-500 font-semibold mt-1">
                 <span>Económica</span>
-                <span className="text-teal-400 font-bold">${(0.75 * tasaActual).toFixed(2)} ref. estándar global</span>
+                <span className="text-teal-400 font-bold">${(0.75 * (tasaActual || 1.0)).toFixed(2)} ref. estándar global</span>
                 <span>Elevada</span>
               </div>
             </div>

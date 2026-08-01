@@ -33,6 +33,11 @@ pip-delete-this-directory.txt
 # Jupyter Notebook (Opcional, en caso de checkpoints)
 .ipynb_checkpoints
 
+# Archivos comprimidos y builds de Java
+*.zip
+springboot-backend/target/
+target/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

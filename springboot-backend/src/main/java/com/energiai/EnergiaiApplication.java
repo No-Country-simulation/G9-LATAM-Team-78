@@ -12,9 +12,12 @@ public class EnergiaiApplication {
         SpringApplication.run(EnergiaiApplication.class, args);
     }
 
-    // Bean para hacer llamadas HTTP a FastAPI
+    // Bean para hacer llamadas HTTP a FastAPI con timeouts de protección
     @Bean
     public RestTemplate restTemplate() {
-        return new RestTemplate();
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(3000);
+        factory.setReadTimeout(5000);
+        return new RestTemplate(factory);
     }
 }

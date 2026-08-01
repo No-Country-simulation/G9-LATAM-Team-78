@@ -25,6 +25,9 @@ public class AnalisisResponseDTO {
     @Schema(description = "Lista de recomendaciones generadas", example = "[\"Desconectar equipos sin uso\", \"Cambiar a iluminación LED\"]")
     private List<String> recomendaciones;
 
+    @Schema(description = "Costo estimado mensual en la tarifa de referencia", example = "315.00")
+    private Double costo_estimado_mensual;
+
     @Schema(description = "Estimación de costos y ahorro")
     private EstimacionFinancieraDTO estimacion_financiera;
     
@@ -49,6 +52,9 @@ public class AnalisisResponseDTO {
 
     public List<String> getRecomendaciones() { return recomendaciones; }
     public void setRecomendaciones(List<String> recomendaciones) { this.recomendaciones = recomendaciones; }
+
+    public Double getCosto_estimado_mensual() { return costo_estimado_mensual; }
+    public void setCosto_estimado_mensual(Double costo_estimado_mensual) { this.costo_estimado_mensual = costo_estimado_mensual; }
 
     public EstimacionFinancieraDTO getEstimacion_financiera() { return estimacion_financiera; }
     public void setEstimacion_financiera(EstimacionFinancieraDTO estimacion_financiera) { this.estimacion_financiera = estimacion_financiera; }
