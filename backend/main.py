@@ -108,6 +108,23 @@ except Exception as e:
     print(f"[INFO] OCI Configuración/SDK no activa ({e}). Modo local/fallback activado.")
 
 
+def descargar_modelo_oci():
+    """Descarga el modelo ML serializado desde OCI Object Storage si está disponible en la nube."""
+    if oci_object_storage:
+        try:
+            os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+            res = oci_object_storage.get_object(
+                namespace_name=OCI_NAMESPACE,
+                bucket_name=OCI_BUCKET,
+                object_name="modelo/energiai_model.joblib"
+            )
+            with open(MODEL_PATH, 'wb') as f:
+                f.write(res.data.content)
+            print(f"[OCI OK] Modelo descargado desde OCI Object Storage hacia {MODEL_PATH}")
+        except Exception as e:
+            print(f"[OCI INFO] No se pudo descargar modelo desde OCI ({e}). Usando modelo local.")
+
+
 def guardar_resultado_oci(id_analisis: str, resultado_dict: dict):
     """Guarda el resultado del análisis como archivo JSON en OCI Object Storage (en segundo plano sin bloquear)."""
     if oci_object_storage:
@@ -127,6 +144,21 @@ def guardar_resultado_oci(id_analisis: str, resultado_dict: dict):
                 print(f"[OCI INFO] Persistencia local/fallback utilizada ({err}).")
 
         threading.Thread(target=_upload_task, daemon=True).start()
+
+
+def consultar_resultado_oci(id_analisis: str):
+    """Recupera el resultado de un análisis en formato JSON desde OCI Object Storage."""
+    if oci_object_storage:
+        try:
+            res = oci_object_storage.get_object(
+                namespace_name=OCI_NAMESPACE,
+                bucket_name=OCI_BUCKET,
+                object_name=f"resultados/{id_analisis}.json"
+            )
+            return json.loads(res.data.content.decode('utf-8'))
+        except Exception as err:
+            print(f"[OCI INFO] Petición OCI sin respuesta: {err}")
+    return None
 
 
 # ── Modelos Pydantic (Entrada/Salida) ───────────────────────────────
@@ -385,9 +417,15 @@ def consultar_resultado(id_analisis: str):
     Recupera el resultado de un análisis previo por su ID único.
     En producción, los datos se recuperarían desde OCI Object Storage.
     """
-    if id_analisis not in historial_analisis:
-        raise HTTPException(status_code=404, detail=f"Análisis '{id_analisis}' no encontrado.")
-    return historial_analisis[id_analisis]
+    if id_analisis in historial_analisis:
+        return historial_analisis[id_analisis]
+    
+    # Intentar recuperación desde OCI Object Storage
+    resultado_oci = consultar_resultado_oci(id_analisis)
+    if resultado_oci:
+        return resultado_oci
+
+    raise HTTPException(status_code=404, detail=f"Análisis '{id_analisis}' no encontrado.")
 
 
 @app.get("/resultados", tags=["Resultados"])
