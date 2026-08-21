@@ -78,19 +78,55 @@ REGIONES_CONFIG = {
 historial_analisis = {}
 
 # ── Carga del modelo serializado ────────────────────────────────────
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "modelo", "energiai_model.joblib")
-ENCODER_PATH = os.path.join(os.path.dirname(__file__), "modelo", "label_encoder.joblib")
+import oci
+
+MODEL_DIR = os.path.join(os.path.dirname(__file__), "modelo")
+if not os.path.exists(MODEL_DIR):
+    os.makedirs(MODEL_DIR)
+
+MODEL_PATH = os.path.join(MODEL_DIR, "energiai_model.joblib")
+ENCODER_PATH = os.path.join(MODEL_DIR, "label_encoder.joblib")
 
 model = None
 label_encoder = None
 
+def download_from_oci(bucket_name, object_name, dest_path):
+    try:
+        # Usa configuración por defecto de ~/.oci/config
+        config = oci.config.from_file()
+        object_storage = oci.object_storage.ObjectStorageClient(config)
+    except Exception as e_conf:
+        # Si falla, intenta usar Resource Principal (útil al correr dentro de la instancia OCI)
+        try:
+            signer = oci.auth.signers.InstancePrincipalsSecurityTokenSigner()
+            object_storage = oci.object_storage.ObjectStorageClient({}, signer=signer)
+        except Exception as e_sign:
+            raise Exception(f"Fallo configuración OCI: {e_conf} | Fallo signer: {e_sign}")
+
+    namespace = object_storage.get_namespace().data
+    print(f"[INFO] Descargando {object_name} desde OCI Object Storage (bucket: {bucket_name})...")
+    
+    get_obj = object_storage.get_object(namespace, bucket_name, object_name)
+    with open(dest_path, 'wb') as f:
+        for chunk in get_obj.data.raw.stream(1024 * 1024, decode_content=False):
+            f.write(chunk)
+    print(f"[OK] Descarga de {object_name} exitosa.")
+
+# Intentar descargar los modelos si no existen localmente
+try:
+    if not os.path.exists(MODEL_PATH) or not os.path.exists(ENCODER_PATH):
+        bucket_name = "bucket-energiai-modelos"
+        download_from_oci(bucket_name, "energiai_model.joblib", MODEL_PATH)
+        download_from_oci(bucket_name, "label_encoder.joblib", ENCODER_PATH)
+except Exception as e:
+    print(f"[WARNING] No se pudo descargar el modelo desde OCI: {e}")
+
 try:
     model = joblib.load(MODEL_PATH)
     label_encoder = joblib.load(ENCODER_PATH)
-    print(f"[OK] Modelo cargado desde: {MODEL_PATH}")
-except FileNotFoundError:
-    print("[WARNING] Modelo no encontrado. Usando clasificacion por reglas como fallback.")
-
+    print(f"[OK] Modelo cargado exitosamente en memoria.")
+except Exception as e:
+    print(f"[WARNING] Modelo no cargado. Usando clasificación por reglas como fallback. Detalle: {e}")
 
 # ── Modelos Pydantic (Entrada/Salida) ───────────────────────────────
 
@@ -455,7 +491,7 @@ def convertir_moneda():
     """
     import urllib.request
     try:
-        url = "https://api.exchangerate-api.com/v4/latest/USD"
+        url = "https://open.er-api.com/v6/latest/USD"
         with urllib.request.urlopen(url) as response:
             data = json.loads(response.read().decode())
         
