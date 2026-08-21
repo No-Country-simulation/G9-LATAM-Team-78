@@ -205,8 +205,8 @@ export default function App() {
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Tarifa Estándar</span>
               <div className="p-2 bg-teal-500/10 rounded-xl text-teal-400 border border-teal-500/20"><DollarSign size={16} /></div>
             </div>
-            <span className="text-2xl font-extrabold text-slate-100">${tariff.toFixed(2)} USD</span>
-            <p className="text-[10px] text-slate-400 mt-1">Ref. Estándar: <span className="font-semibold text-teal-400">$0.75/kWh</span></p>
+            <span className="text-2xl font-extrabold text-slate-100">${(tariff * tasaActual).toFixed(2)} {moneda}</span>
+            <p className="text-[10px] text-slate-400 mt-1">Ref. Estándar: <span className="font-semibold text-teal-400">${(0.75 * tasaActual).toFixed(2)} {moneda}/kWh</span></p>
           </div>
 
           <div className="glass-panel p-5 rounded-2xl border border-white/5 relative overflow-hidden group hover:border-rose-500/20 transition-all duration-300">
@@ -218,7 +218,7 @@ export default function App() {
               </div>
             </div>
             <span className={`text-2xl font-extrabold ${summary.totalWaste > 1.5 ? 'text-rose-400' : 'text-slate-100'}`}>{summary.totalWaste} kWh</span>
-            <p className="text-[10px] text-slate-400 mt-1">Pérdida: <span className="font-semibold text-rose-400">${summary.potentialSavings} USD/día</span></p>
+            <p className="text-[10px] text-slate-400 mt-1">Pérdida: <span className="font-semibold text-rose-400">${(summary.potentialSavings * tasaActual).toFixed(2)} {moneda}/día</span></p>
           </div>
 
           <div className="glass-panel p-5 rounded-2xl border border-white/5 relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">

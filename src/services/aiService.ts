@@ -63,7 +63,7 @@ Aquí tienes mi diagnóstico inicial del desperdicio:
   // Llamada real al SDK de Gemini
   try {
     const model = genAI!.getGenerativeModel({
-      model: 'gemini-1.5-flash-latest',
+      model: 'gemini-2.0-flash',
       systemInstruction: ENERGIAI_SYSTEM_PROMPT,
     });
 
@@ -125,7 +125,7 @@ export async function analizarConsumoConAgente(contextoDinamico: string): Promis
   // Llamada real a Gemini
   try {
     const model = genAI!.getGenerativeModel({
-      model: 'gemini-1.5-flash-latest',
+      model: 'gemini-2.0-flash',
       systemInstruction: ENERGIAI_SYSTEM_PROMPT,
     });
 

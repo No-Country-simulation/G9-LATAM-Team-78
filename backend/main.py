@@ -491,7 +491,7 @@ def convertir_moneda():
     """
     import urllib.request
     try:
-        url = "https://api.exchangerate-api.com/v4/latest/USD"
+        url = "https://open.er-api.com/v6/latest/USD"
         with urllib.request.urlopen(url) as response:
             data = json.loads(response.read().decode())
         

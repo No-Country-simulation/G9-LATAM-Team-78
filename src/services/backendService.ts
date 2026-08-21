@@ -173,10 +173,29 @@ export interface MonedaResponse {
 export async function getTasasMoneda(): Promise<MonedaResponse | null> {
   try {
     const response = await fetch(`${BACKEND_URL}/convertir-moneda`);
-    if (!response.ok) return null;
+    if (!response.ok) throw new Error("Backend no ok");
     return await response.json();
   } catch (error) {
-    console.error("Error fetching currency rates:", error);
-    return null;
+    console.warn("⚠️ Falló API Gateway para moneda. Usando fallback público:", error);
+    try {
+      const fallbackResponse = await fetch("https://open.er-api.com/v6/latest/USD");
+      if (!fallbackResponse.ok) return null;
+      const data = await fallbackResponse.json();
+      
+      const monedas_latam = ["MXN", "COP", "ARS", "CLP", "PEN", "BRL", "USD"];
+      const tasas: Record<string, number> = {};
+      monedas_latam.forEach(m => {
+        if (data.rates[m]) tasas[m] = data.rates[m];
+      });
+      
+      return {
+        base: "USD",
+        tasas: tasas,
+        ultima_actualizacion: data.time_last_update_utc || new Date().toISOString()
+      };
+    } catch (fallbackError) {
+      console.error("Error fetching currency rates local:", fallbackError);
+      return null;
+    }
   }
 }
