@@ -50,7 +50,10 @@ app = FastAPI(
 )
 
 # Habilitar CORS para conexión con el frontend React
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:3000,https://g9-latam-team-78-qpen.vercel.app"
+).split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
