@@ -146,7 +146,11 @@ class EntradaConsumo(BaseModel):
     cantidad_equipos: int = Field(..., ge=1, le=100, description="Cantidad de equipos eléctricos activos")
     tipo_inmueble: str = Field(..., description="Tipo de inmueble: Casa, Apartamento, Oficina, Comercio")
     horas_alto_consumo: int = Field(..., ge=1, le=24, description="Horas de alto consumo por día")
-    moneda_region: str = Field(default="USD", description="Código de región/moneda para métricas locales")
+    moneda_region: Optional[str] = Field(default="USD", description="Código de región/moneda para métricas locales")
+
+    @validator("moneda_region", pre=True, always=True)
+    def validate_moneda_region(cls, v):
+        return v if v else "USD"
 
     @validator("tipo_inmueble")
     def validate_tipo_inmueble(cls, v):
@@ -580,6 +584,7 @@ def ejemplos_uso():
                         "Instalar medidor inteligente",
                         "Reducir uso en horario pico"
                     ]
+                }
             }
         ]
     }

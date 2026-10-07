@@ -3,7 +3,6 @@ import Navbar from './components/Navbar';
 import UsageChart from './components/UsageChart';
 import ChatAgent from './components/ChatAgent';
 import EnergyForm from './components/EnergyForm';
-import JsonOutputPanel from './components/JsonOutputPanel';
 import { HistorialPanel } from './components/HistorialPanel';
 import { realizarAnalisisApi, getTasasMoneda } from './services/backendService';
 import type { AnalisisOutput } from './services/backendService';
@@ -291,23 +290,6 @@ export default function App() {
 
         </section>
 
-        {/* 3. JSON Output Panel — API REST Output */}
-        <section>
-          <JsonOutputPanel
-            summary={{
-              ...summary,
-              profile: activeProfile
-            }}
-            appliances={appliances}
-            tariff={tariff}
-            consumerName={consumerName}
-            propertyType={propertyType}
-            deviceQuantity={deviceQuantity}
-            previousBillKwh={previousBillKwh}
-            peakConsumptionLevel={peakConsumptionLevel}
-            highConsumptionTime={highConsumptionTime}
-          />
-        </section>
 
         {/* 4. CRUD Historial Panel */}
         <section>

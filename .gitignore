@@ -43,3 +43,7 @@ pip-delete-this-directory.txt
 *.njsproj
 *.sln
 *.sw?
+
+# Java y Maven
+target/
+*.class
